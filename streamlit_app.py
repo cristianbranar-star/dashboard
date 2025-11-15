@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 
-# --- Configuración de la Página de Streamlit ---
+# --- Configuración de la Página ---
 st.set_page_config(
     page_title="Dashboard Alto Costo Medellín",
     page_icon="🏥",
@@ -14,16 +14,15 @@ st.set_page_config(
 
 # Configuración de visualización
 sns.set_style("whitegrid")
-# No necesitamos plt.rcParams['figure.figsize'] porque definiremos el tamaño en cada fig.
 
-# --- ADVERTENCIA IMPORTANTE ---
+# --- ADVERTENCIA DE DATOS SINTÉTICOS ---
 st.warning("""
 **Advertencia Importante:** Esta aplicación utiliza **datos falsos (sintéticos)** con fines educativos.
 El manejo de datos reales de pacientes está estrictamente regulado por leyes de protección de datos (Habeas Data).
 """)
 
 #################################################################
-# PASO 1: SIMULACIÓN DE DATOS (Función Cacheada)
+# PASO 1: SIMULACIÓN DE DATOS (Función cacheada)
 #################################################################
 # Usamos @st.cache_data para que los datos no se regeneren con cada clic
 @st.cache_data
@@ -85,7 +84,7 @@ def cargar_datos_simulados():
         
     return df_pacientes
 
-# --- Título Principal de la App ---
+# --- Título Principal ---
 st.title("Dashboard de Analítica de Pacientes de Alto Costo 🏥")
 st.markdown("Simulación para la toma de decisiones empresariales en la red de salud de Medellín.")
 
@@ -97,15 +96,14 @@ with st.expander("Ver datos crudos simulados (primeras 100 filas)"):
 #################################################################
 # PASO 2: PREPROCESAMIENTO
 #################################################################
-st.header("PASO 2: Preprocesamiento de Datos 🧹", divider='rainbow')
+st.header("PASO 2: Preprocesamiento 🧹", divider='rainbow')
 
 df_procesado = df_pacientes.copy()
 
 # 2.1. Manejo de Valores Nulos
-st.subheader("2.1. Manejo de Valores Nulos")
 col1, col2 = st.columns(2)
 with col1:
-    st.write("**Valores Nulos (Antes):**")
+    st.subheader("Valores Nulos (Antes)")
     st.code(df_procesado.isnull().sum())
 
 # Imputación
@@ -114,11 +112,11 @@ moda_tratamiento = df_procesado['tratamiento_principal'].mode()[0]
 df_procesado['tratamiento_principal'] = df_procesado['tratamiento_principal'].fillna(moda_tratamiento)
 
 with col2:
-    st.write("**Valores Nulos (Después):**")
+    st.subheader("Valores Nulos (Después)")
     st.code(df_procesado.isnull().sum())
 
 # 2.2. Definición de "Alto Costo"
-st.subheader("2.2. Definición de 'Alto Costo'")
+st.subheader("Definición de 'Alto Costo'")
 percentil_90 = df_procesado['costo_total_año'].quantile(0.90)
 
 st.metric(
@@ -144,31 +142,23 @@ df_procesado['rango_edad'] = pd.cut(df_procesado['edad'], bins=bins, labels=labe
 st.write("Se agregó la columna 'rango_edad' a partir de 'edad':")
 st.dataframe(df_procesado[['paciente_id', 'edad', 'rango_edad']].head())
 
-# 3.2. Creación de Características de Interacción
-# (Este paso se omite de la visualización principal pero se mantiene en el dataframe)
-df_procesado['costo_por_consulta'] = df_procesado['costo_total_año'] / (df_procesado['numero_consultas_año'] + 1)
-df_procesado['costo_por_hospitalizacion'] = df_procesado['costo_total_año'] / (df_procesado['numero_hospitalizaciones_año'] + 1)
-
-
-# 3.3 y 3.4. Encoding y Escalado (Para Modelos)
+# 3.2. Encoding y Escalado (Para Modelos)
 with st.expander("Ver detalles de Encoding y Escalado (Preparación para Modelos)"):
     st.markdown("""
-    Estos pasos transforman los datos de texto a números (Encoding) y ajustan las escalas numéricas (Escalado),
-    siendo cruciales si fuéramos a entrenar un modelo de Machine Learning.
+    Para que un modelo de Machine Learning pueda usar estos datos, necesitamos transformar las categorías (texto) en números (Encoding) y
+    asegurarnos de que todas las variables numéricas estén en la misma escala (Escalado).
     """)
-    st.code(f"""
-# 3.3. Encoding Categórico (Para Modelos)
-encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+    st.code("""
+# 3.3. Encoding Categórico (One-Hot Encoding)
 cols_a_codificar = ['sexo', 'comuna', 'rango_edad', 'diagnostico_principal', 'tratamiento_principal']
+encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
 encoded_features = encoder.fit_transform(df_procesado[cols_a_codificar])
-# Esto creó {encoded_features.shape[1]} nuevas columnas numéricas.
+# Esto crearía un nuevo DataFrame con columnas binarias para cada categoría.
 
-# 3.4. Escalado de Características Numéricas (Para Modelos)
-scaler = StandardScaler()
+# 3.4. Escalado de Características Numéricas (StandardScaler)
 cols_a_escalar = ['edad', 'numero_consultas_año', 'numero_hospitalizaciones_año']
+scaler = StandardScaler()
 df_procesado[cols_a_escalar + '_scaled'] = scaler.fit_transform(df_procesado[cols_a_escalar])
-
-print(df_procesado.head())
     """, language='python')
 
 
@@ -176,9 +166,9 @@ print(df_procesado.head())
 # PASO 4: VISUALES PARA DECISIONES EMPRESARIALES
 #################################################################
 st.header("PASO 4: Visuales para Decisiones Empresariales 📊", divider='rainbow')
-st.info("A partir de aquí, los análisis se enfocan en el segmento de **Alto Costo**.")
+st.info("A partir de aquí, nos enfocamos en el segmento de **Alto Costo**.")
 
-# Filtramos solo los pacientes de alto costo
+# Filtro
 df_alto_costo = df_procesado[df_procesado['es_alto_costo'] == 1]
 
 # ---
@@ -210,7 +200,6 @@ ax2.set_xlabel('Cantidad de Pacientes')
 ax2.set_ylabel('Tratamiento')
 
 plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-# Usamos st.pyplot() para mostrar la figura en Streamlit
 st.pyplot(fig1)
 
 st.success("""
@@ -234,7 +223,6 @@ sns.countplot(
 ax.set_title('Distribución Geográfica (Comunas) de Pacientes de Alto Costo', fontsize=16, weight='bold')
 ax.set_xlabel('Cantidad de Pacientes')
 ax.set_ylabel('Comuna')
-plt.tight_layout()
 st.pyplot(fig2)
 
 st.success("""
@@ -265,7 +253,6 @@ ax.set_title('Costo vs. Frecuencia de Servicios', fontsize=16, weight='bold')
 ax.set_xlabel('Número de Consultas al Año')
 ax.set_ylabel('Número de Hospitalizaciones al Año')
 ax.legend(title='¿Es Alto Costo?')
-plt.tight_layout()
 st.pyplot(fig3)
 
 st.success("""
@@ -276,7 +263,7 @@ El costo no es por ir *mucho* al médico, es por ser *hospitalizado*.
 """)
 
 # ---
-# VISUAL 4: ¿Cuál es el perfil demográfico del paciente de alto costo?
+# VISUAL 4: ¿Cuál es el perfil demográfico?
 # ---
 st.subheader("Visual 4: Perfil Demográfico del Paciente de Alto Costo")
 
@@ -293,7 +280,6 @@ ax.set_title('Perfil Demográfico de Pacientes de Alto Costo', fontsize=16, weig
 ax.set_xlabel('Rango de Edad')
 ax.set_ylabel('Cantidad de Pacientes')
 ax.legend(title='Sexo')
-plt.tight_layout()
 st.pyplot(fig4)
 
 st.success("""
@@ -318,7 +304,6 @@ ax.legend()
 ax.get_xaxis().set_major_formatter(
     plt.FuncFormatter(lambda x, p: f'${x/1_000_000:.0f}M')
 )
-plt.tight_layout()
 st.pyplot(fig5)
 
 st.success("""
